@@ -3,13 +3,17 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'providers/theme_provider.dart';
+import 'providers/quotes_provider.dart';
 import 'screens/home_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => ThemeProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => QuotesProvider()),
+      ],
       child: const MyApp(),
     ),
   );
@@ -34,7 +38,7 @@ class MyApp extends StatelessWidget {
         }
 
         return MaterialApp(
-          title: 'Random Quote',
+          title: 'Random Quote Generator',
           debugShowCheckedModeBanner: false,
           themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
           theme: ThemeData(

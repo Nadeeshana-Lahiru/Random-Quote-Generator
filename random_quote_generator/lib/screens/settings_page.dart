@@ -62,8 +62,28 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const Divider(),
           ListTile(
+            leading: const Icon(Icons.language),
+            title: const Text('Language', style: TextStyle(fontSize: 18)),
+            subtitle: const Text('Applies to quotes content'),
+            trailing: DropdownButton<String>(
+              value: themeProvider.languageCode,
+              underline: const SizedBox(),
+              items: const [
+                DropdownMenuItem(value: 'en', child: Text('English')),
+                DropdownMenuItem(value: 'si', child: Text('Sinhala')),
+                DropdownMenuItem(value: 'ta', child: Text('Tamil')),
+              ],
+              onChanged: (String? newValue) {
+                if (newValue != null) {
+                  themeProvider.setLanguage(newValue);
+                }
+              },
+            ),
+          ),
+          const Divider(),
+          ListTile(
             leading: const Icon(Icons.info_outline),
-            title: const Text('App Version'),
+            title: const Text('App Version', style: TextStyle(fontSize: 18)),
             trailing: Text(
               _version,
               style: const TextStyle(fontSize: 16, color: Colors.grey),
