@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../providers/theme_provider.dart';
 import '../providers/quotes_provider.dart';
+import '../providers/audio_provider.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -41,6 +42,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final quotesProvider = Provider.of<QuotesProvider>(context);
+    final audioProvider = Provider.of<AudioProvider>(context);
     
     return Scaffold(
       appBar: AppBar(
@@ -58,6 +60,16 @@ class _SettingsPageState extends State<SettingsPage> {
             value: quotesProvider.isAutoRefreshEnabled,
             onChanged: (value) {
               quotesProvider.toggleAutoRefresh(value);
+            },
+          ),
+          const Divider(),
+          SwitchListTile(
+            title: const Text('Background Ambience', style: TextStyle(fontSize: 18)),
+            subtitle: const Text('Play deeply relaxing rain loops natively'),
+            secondary: const Icon(Icons.water_drop),
+            value: audioProvider.isAmbienceEnabled,
+            onChanged: (value) {
+              audioProvider.toggleAmbience(value);
             },
           ),
           const Divider(),

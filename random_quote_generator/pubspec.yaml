@@ -43,6 +43,7 @@ dependencies:
   home_widget: ^0.9.1
   flutter_tts: ^4.2.5
   shimmer: ^3.0.0
+  audioplayers: ^6.6.0
 
 dev_dependencies:
   flutter_test:
