@@ -41,6 +41,7 @@ dependencies:
   share_plus: ^13.1.0
   http: ^1.6.0
   home_widget: ^0.9.1
+  flutter_tts: ^4.2.5
 
 dev_dependencies:
   flutter_test:

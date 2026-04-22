@@ -2,21 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeProvider extends ChangeNotifier {
-  static const String _themeKey = 'theme_preference';
+  static const String _themeModeKey = 'theme_mode_preference';
   static const String _langKey = 'language_preference';
   static const String _fontFamilyKey = 'font_family_preference';
   static const String _fontSizeKey = 'font_size_preference';
+  static const String _ttsGenderKey = 'tts_gender_preference';
   
-  bool _isDarkMode = false;
+  String _themeMode = 'system'; // 'light', 'dark', 'system'
   String _languageCode = 'en';
   String _fontFamily = 'Outfit';
-  double _fontSize = 24.0; // Base size for quote text
+  double _fontSize = 24.0;
+  String _ttsGender = 'female'; // 'female', 'male'
   bool _isInitialized = false;
 
-  bool get isDarkMode => _isDarkMode;
+  String get themeMode => _themeMode;
   String get languageCode => _languageCode;
   String get fontFamily => _fontFamily;
   double get fontSize => _fontSize;
+  String get ttsGender => _ttsGender;
   bool get isInitialized => _isInitialized;
 
   ThemeProvider() {
@@ -25,20 +28,32 @@ class ThemeProvider extends ChangeNotifier {
 
   void _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    _isDarkMode = prefs.getBool(_themeKey) ?? false;
+    
+    // Support migrating from old boolean if it exists
+    final oldThemeBool = prefs.getBool('theme_preference');
+    if (oldThemeBool != null && prefs.getString(_themeModeKey) == null) {
+        _themeMode = oldThemeBool ? 'dark' : 'light';
+        await prefs.remove('theme_preference'); // clean up ancient key
+    } else {
+        _themeMode = prefs.getString(_themeModeKey) ?? 'system';
+    }
+
     _languageCode = prefs.getString(_langKey) ?? 'en';
     _fontFamily = prefs.getString(_fontFamilyKey) ?? 'Outfit';
     _fontSize = prefs.getDouble(_fontSizeKey) ?? 24.0;
+    _ttsGender = prefs.getString(_ttsGenderKey) ?? 'female';
     
     _isInitialized = true;
     notifyListeners();
   }
 
-  void toggleTheme() async {
-    _isDarkMode = !_isDarkMode;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_themeKey, _isDarkMode);
+  void setThemeMode(String mode) async {
+    if (_themeMode != mode) {
+      _themeMode = mode;
+      notifyListeners();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_themeModeKey, _themeMode);
+    }
   }
 
   void setLanguage(String code) async {
@@ -65,6 +80,15 @@ class ThemeProvider extends ChangeNotifier {
       notifyListeners();
       final prefs = await SharedPreferences.getInstance();
       await prefs.setDouble(_fontSizeKey, _fontSize);
+    }
+  }
+
+  void setTtsGender(String gender) async {
+    if (_ttsGender != gender) {
+      _ttsGender = gender;
+      notifyListeners();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_ttsGenderKey, _ttsGender);
     }
   }
 }

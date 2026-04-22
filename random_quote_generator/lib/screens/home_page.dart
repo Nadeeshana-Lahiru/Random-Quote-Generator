@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import '../providers/quotes_provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/quote.dart';
@@ -15,12 +16,27 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
+  late AnimationController _fadeController;
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
+  final FlutterTts _flutterTts = FlutterTts();
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    
+    _fadeController.forward();
+  }
 
   @override
   void dispose() {
+    _flutterTts.stop();
+    _fadeController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -28,6 +44,13 @@ class _HomePageState extends State<HomePage> {
   void _shareQuote(String text, String author) {
     // ignore: deprecated_member_use
     Share.share('"$text"\n\n- $author');
+  }
+
+  Future<void> _speakQuote(String text, String author, String gender) async {
+    // Pitch shift acts as a universal gender mimicker across localized Android TTS engines safely.
+    await _flutterTts.setPitch(gender == 'male' ? 0.6 : 1.2);
+    await _flutterTts.setSpeechRate(0.5); // Slower pacing for quotes
+    await _flutterTts.speak("$text... By $author.");
   }
 
   void _showQuoteOfTheDay(BuildContext context, Quote qotd, ThemeProvider themeProvider) {
@@ -77,6 +100,14 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _generateNewQuoteWithAnimation(QuotesProvider quotesProvider) {
+    _flutterTts.stop(); // cancel audio if user skips quote
+    _fadeController.reverse().then((_) {
+      quotesProvider.generateNewQuoteManually();
+      _fadeController.forward();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -116,7 +147,7 @@ class _HomePageState extends State<HomePage> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.favorite_border),
+            icon: const Icon(Icons.library_books),
             onPressed: () {
               Navigator.push(
                 context,
@@ -231,114 +262,138 @@ class _HomePageState extends State<HomePage> {
                       )
                     : currentQuote == null
                         ? const Center(child: Text("No quotes found.", style: TextStyle(fontSize: 18)))
-                        : Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const Spacer(),
-                              AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 600),
-                                transitionBuilder: (Widget child, Animation<double> animation) {
-                                  return FadeTransition(
-                                    opacity: animation,
-                                    child: SlideTransition(
-                                      position: Tween<Offset>(
-                                        begin: const Offset(0.0, 0.05),
-                                        end: Offset.zero,
-                                      ).animate(animation),
-                                      child: child,
-                                    ),
-                                  );
-                                },
-                                child: Column(
-                                  key: ValueKey<String>(currentQuote.id),
+                        : GestureDetector(
+                            onHorizontalDragEnd: (details) {
+                              if (details.primaryVelocity != null && details.primaryVelocity!.abs() > 300) {
+                                // Swiped left or right fast enough
+                                _generateNewQuoteWithAnimation(quotesProvider);
+                              }
+                            },
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const Spacer(),
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 600),
+                                  transitionBuilder: (Widget child, Animation<double> animation) {
+                                    return FadeTransition(
+                                      opacity: animation,
+                                      child: SlideTransition(
+                                        position: Tween<Offset>(
+                                          begin: const Offset(0.0, 0.05),
+                                          end: Offset.zero,
+                                        ).animate(animation),
+                                        child: child,
+                                      ),
+                                    );
+                                  },
+                                  child: Column(
+                                    key: ValueKey<String>(currentQuote.id),
+                                    children: [
+                                      const Icon(
+                                        Icons.format_quote_rounded,
+                                        size: 56,
+                                        color: Colors.grey,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        '"${currentQuote.getText(themeProvider.languageCode)}"',
+                                        style: theme.textTheme.headlineSmall?.copyWith(
+                                          fontSize: themeProvider.fontSize,
+                                          fontWeight: FontWeight.w600,
+                                          height: 1.4,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      const SizedBox(height: 24),
+                                      Text(
+                                        '- ${currentQuote.getAuthor(themeProvider.languageCode)}',
+                                        style: theme.textTheme.titleMedium?.copyWith(
+                                          fontSize: themeProvider.fontSize * 0.7,
+                                          fontStyle: FontStyle.italic,
+                                          color: theme.colorScheme.primary,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 32),
+                                // Action Buttons
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    const Icon(
-                                      Icons.format_quote_rounded,
-                                      size: 56,
-                                      color: Colors.grey,
+                                    IconButton(
+                                      icon: const Icon(Icons.volume_up, size: 32),
+                                      onPressed: () {
+                                        _speakQuote(
+                                          currentQuote.getText(themeProvider.languageCode),
+                                          currentQuote.getAuthor(themeProvider.languageCode),
+                                          themeProvider.ttsGender
+                                        );
+                                      },
                                     ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      '"${currentQuote.getText(themeProvider.languageCode)}"',
-                                      style: theme.textTheme.headlineSmall?.copyWith(
-                                        fontSize: themeProvider.fontSize,
-                                        fontWeight: FontWeight.w600,
-                                        height: 1.4,
+                                    const SizedBox(width: 16),
+                                    IconButton(
+                                      icon: AnimatedSwitcher(
+                                        duration: const Duration(milliseconds: 300),
+                                        transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+                                        child: Icon(
+                                          quotesProvider.isFavorite(currentQuote.id) 
+                                              ? Icons.favorite 
+                                              : Icons.favorite_border,
+                                          key: ValueKey(quotesProvider.isFavorite(currentQuote.id)),
+                                          color: quotesProvider.isFavorite(currentQuote.id) 
+                                              ? Colors.red 
+                                              : theme.iconTheme.color,
+                                          size: 32,
+                                        ),
                                       ),
-                                      textAlign: TextAlign.center,
+                                      onPressed: () {
+                                        quotesProvider.toggleFavorite(currentQuote);
+                                      },
                                     ),
-                                    const SizedBox(height: 24),
-                                    Text(
-                                      '- ${currentQuote.getAuthor(themeProvider.languageCode)}',
-                                      style: theme.textTheme.titleMedium?.copyWith(
-                                        fontSize: themeProvider.fontSize * 0.7,
-                                        fontStyle: FontStyle.italic,
-                                        color: theme.colorScheme.primary,
-                                      ),
-                                      textAlign: TextAlign.center,
+                                    const SizedBox(width: 16),
+                                    IconButton(
+                                      icon: const Icon(Icons.share, size: 32),
+                                      onPressed: () {
+                                        _shareQuote(
+                                          currentQuote.getText(themeProvider.languageCode),
+                                          currentQuote.getAuthor(themeProvider.languageCode)
+                                        );
+                                      },
                                     ),
                                   ],
                                 ),
-                              ),
-                              const SizedBox(height: 32),
-                              // Action Buttons
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  IconButton(
-                                    icon: AnimatedSwitcher(
-                                      duration: const Duration(milliseconds: 300),
-                                      transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
-                                      child: Icon(
-                                        quotesProvider.isFavorite(currentQuote.id) 
-                                            ? Icons.favorite 
-                                            : Icons.favorite_border,
-                                        key: ValueKey(quotesProvider.isFavorite(currentQuote.id)),
-                                        color: quotesProvider.isFavorite(currentQuote.id) 
-                                            ? Colors.red 
-                                            : theme.iconTheme.color,
-                                        size: 32,
-                                      ),
+                                const Spacer(),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    _generateNewQuoteWithAnimation(quotesProvider);
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
                                     ),
-                                    onPressed: () {
-                                      quotesProvider.toggleFavorite(currentQuote);
-                                    },
                                   ),
-                                  const SizedBox(width: 32),
-                                  IconButton(
-                                    icon: const Icon(Icons.share, size: 32),
-                                    onPressed: () {
-                                      _shareQuote(
-                                        currentQuote.getText(themeProvider.languageCode),
-                                        currentQuote.getAuthor(themeProvider.languageCode)
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                              const Spacer(),
-                              ElevatedButton(
-                                onPressed: () {
-                                  quotesProvider.generateNewQuoteManually();
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
+                                  child: const Text(
+                                    'NEW QUOTE',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.2,
+                                    ),
                                   ),
                                 ),
-                                child: const Text(
-                                  'NEW QUOTE',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1.2,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                            ],
+                                const SizedBox(height: 16),
+                                const Text(
+                                  "Swipe left/right for new quotes!",
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                                )
+                              ],
+                            ),
                           ),
               ),
             ),

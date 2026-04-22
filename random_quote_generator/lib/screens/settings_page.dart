@@ -49,16 +49,43 @@ class _SettingsPageState extends State<SettingsPage> {
       body: ListView(
         children: [
           const SizedBox(height: 16),
-          SwitchListTile(
-            title: const Text('Dark Mode', style: TextStyle(fontSize: 18)),
-            subtitle: const Text('Toggle between light and dark theme'),
-            secondary: Icon(
-              themeProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,
+          ListTile(
+            leading: const Icon(Icons.brightness_6),
+            title: const Text('Theme Mode', style: TextStyle(fontSize: 18)),
+            subtitle: const Text('Applies dynamic dark/light backgrounds'),
+            trailing: DropdownButton<String>(
+              value: themeProvider.themeMode,
+              underline: const SizedBox(),
+              items: const [
+                DropdownMenuItem(value: 'system', child: Text('System Default')),
+                DropdownMenuItem(value: 'light', child: Text('Light Mode')),
+                DropdownMenuItem(value: 'dark', child: Text('Dark Mode')),
+              ],
+              onChanged: (String? newValue) {
+                if (newValue != null) {
+                  themeProvider.setThemeMode(newValue);
+                }
+              },
             ),
-            value: themeProvider.isDarkMode,
-            onChanged: (value) {
-              themeProvider.toggleTheme();
-            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.record_voice_over),
+            title: const Text('TTS Voice Gender', style: TextStyle(fontSize: 18)),
+            subtitle: const Text('Dictates spoken quote profiles'),
+            trailing: DropdownButton<String>(
+              value: themeProvider.ttsGender,
+              underline: const SizedBox(),
+              items: const [
+                DropdownMenuItem(value: 'female', child: Text('Female Voice')),
+                DropdownMenuItem(value: 'male', child: Text('Male Voice')),
+              ],
+              onChanged: (String? newValue) {
+                if (newValue != null) {
+                  themeProvider.setTtsGender(newValue);
+                }
+              },
+            ),
           ),
           const Divider(),
           ListTile(

@@ -40,7 +40,9 @@ class MyApp extends StatelessWidget {
         return MaterialApp(
           title: 'Random Quote Generator',
           debugShowCheckedModeBanner: false,
-          themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+          themeMode: themeProvider.themeMode == 'system' 
+              ? ThemeMode.system 
+              : (themeProvider.themeMode == 'dark' ? ThemeMode.dark : ThemeMode.light),
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(
               seedColor: const Color(0xFF2C3E50),
