@@ -1,8 +1,7 @@
-import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:provider/provider.dart';
 import '../models/quote.dart';
@@ -19,7 +18,6 @@ class ExportStudioPage extends StatefulWidget {
 
 class _ExportStudioPageState extends State<ExportStudioPage> {
   final GlobalKey _globalKey = GlobalKey();
-  bool _isExporting = false;
   
   // Array linking core gradients to map uniquely rendering contexts
   int _selectedBackgroundIndex = 0; 
@@ -32,36 +30,166 @@ class _ExportStudioPageState extends State<ExportStudioPage> {
     [const Color(0xFF11998E), const Color(0xFF38EF7D)], // Moss Green
   ];
 
-  Future<void> _exportCanvas() async {
-    setState(() {
-      _isExporting = true;
-    });
-    
+  Future<Uint8List?> _generateImageBytes() async {
     try {
       final boundary = _globalKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      if (boundary == null) return;
+      if (boundary == null) return null;
       
       final image = await boundary.toImage(pixelRatio: 4.0);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      final pngBytes = byteData!.buffer.asUint8List();
-      
-      final directory = await getTemporaryDirectory();
-      final imagePath = await File('${directory.path}/quote_export.png').create();
-      await imagePath.writeAsBytes(pngBytes);
-      
-      // ignore: deprecated_member_use
-      await Share.shareXFiles([XFile(imagePath.path)], text: 'Check out this quote!');
+      return byteData!.buffer.asUint8List();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to export: $e')));
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isExporting = false;
-        });
-      }
+      return null;
     }
+  }
+
+  void _triggerNativeShare(Uint8List bytes) async {
+    final xFile = XFile.fromData(
+      bytes,
+      mimeType: 'image/png',
+      name: 'quote_export.png',
+    );
+    // ignore: deprecated_member_use
+    await Share.shareXFiles([xFile], text: 'Check out this quote!');
+  }
+
+  void _openExportMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (bottomSheetContext) {
+        bool isProcessing = false;
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+
+            return Container(
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 24),
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark 
+                    ? const Color(0xFF1E1E1E) 
+                    : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 20, spreadRadius: 5)
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Handle Bar
+                  Container(
+                    height: 5, 
+                    width: 48, 
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withOpacity(0.5), 
+                      borderRadius: BorderRadius.circular(10)
+                    )
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  const Text(
+                    'Export & Share', 
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Select how you want to handle your canvas', 
+                    style: TextStyle(color: Colors.grey, fontSize: 14)
+                  ),
+                  const SizedBox(height: 32),
+
+                  if (isProcessing)
+                    const Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: Column(
+                        children: [
+                          CircularProgressIndicator(color: Colors.blueAccent),
+                          SizedBox(height: 16),
+                          Text("Rendering High-Def Canvas...", style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold))
+                        ],
+                      ),
+                    )
+                  else
+                    Column(
+                      children: [
+                        // Share via Apps Block
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.blueAccent.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.blueAccent.withOpacity(0.3))
+                          ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                            leading: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: const BoxDecoration(
+                                color: Colors.blueAccent,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.ios_share_rounded, color: Colors.white),
+                            ),
+                            title: const Text('Share to Apps', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+                            subtitle: const Text('Open device system menu', style: TextStyle(color: Colors.grey)),
+                            trailing: const Icon(Icons.arrow_forward_ios_rounded, color: Colors.blueAccent, size: 16),
+                            onTap: () async {
+                              setModalState(() => isProcessing = true);
+                              final bytes = await _generateImageBytes();
+                              if (!context.mounted) return;
+                              if (bytes != null) {
+                                Navigator.pop(context); // Pop menu
+                                _triggerNativeShare(bytes); // Fire system sheet afterwards
+                              } else {
+                                setModalState(() => isProcessing = false);
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to render framework boundary.')));
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Fake Copy / Save generic placeholder block enhancing premium feel!
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.grey.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                            leading: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.copy_rounded, color: Colors.grey),
+                            ),
+                            title: const Text('Load to Memory', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
+                            subtitle: const Text('Generate raw PNG without system post', style: TextStyle(color: Colors.grey)),
+                            onTap: () async {
+                              setModalState(() => isProcessing = true);
+                              final bytes = await _generateImageBytes();
+                              if (!context.mounted) return;
+                              if (bytes != null) {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Memory array buffered locally! (Simulation)')));
+                              } else {
+                                setModalState(() => isProcessing = false);
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            );
+          }
+        );
+      }
+    );
   }
 
   @override
@@ -76,15 +204,11 @@ class _ExportStudioPageState extends State<ExportStudioPage> {
         backgroundColor: Colors.black,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          _isExporting 
-            ? const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blueAccent))),
-              )
-            : IconButton(
-                icon: const Icon(Icons.share, color: Colors.blueAccent),
-                onPressed: _exportCanvas,
-              ),
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.blueAccent),
+            // Re-wired the button directly summoning the gorgeous Modal Engine
+            onPressed: _openExportMenu,
+          ),
         ],
       ),
       body: Column(
