@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../providers/quotes_provider.dart';
 import '../providers/theme_provider.dart';
@@ -9,6 +8,7 @@ import '../data/quotes_data.dart';
 import '../widgets/quote_skeleton.dart';
 import 'settings_page.dart';
 import 'library_page.dart';
+import 'export_studio_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -43,10 +43,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     super.dispose();
   }
 
-  void _shareQuote(String text, String author) {
-    // ignore: deprecated_member_use
-    Share.share('"$text"\n\n- $author');
-  }
 
   Future<void> _speakQuote(String text, String author, String gender) async {
     await _flutterTts.setPitch(gender == 'male' ? 0.6 : 1.2);
@@ -358,9 +354,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                       IconButton(
                                         icon: const Icon(Icons.share, size: 32),
                                         onPressed: () {
-                                          _shareQuote(
-                                            currentQuote.getText(themeProvider.languageCode),
-                                            currentQuote.getAuthor(themeProvider.languageCode)
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => ExportStudioPage(quote: currentQuote),
+                                            ),
                                           );
                                         },
                                       ),

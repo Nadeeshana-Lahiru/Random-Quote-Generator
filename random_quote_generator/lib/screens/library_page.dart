@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/quotes_provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/quote.dart';
+import 'export_studio_page.dart';
 
 class LibraryPage extends StatelessWidget {
   const LibraryPage({super.key});
@@ -110,18 +111,36 @@ class _QuoteCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  '- ${quote.getAuthor(themeProvider.languageCode)}',
-                  style: TextStyle(fontStyle: FontStyle.italic, color: Theme.of(context).colorScheme.primary),
-                ),
-                IconButton(
-                  icon: Icon(
-                    quotesProvider.isFavorite(quote.id) ? Icons.favorite : Icons.favorite_border,
-                    color: quotesProvider.isFavorite(quote.id) ? Colors.red : Theme.of(context).iconTheme.color,
+                Expanded(
+                  child: Text(
+                    '- ${quote.getAuthor(themeProvider.languageCode)}',
+                    style: TextStyle(fontStyle: FontStyle.italic, color: Theme.of(context).colorScheme.primary),
                   ),
-                  onPressed: () {
-                    quotesProvider.toggleFavorite(quote);
-                  },
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.share, size: 24),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ExportStudioPage(quote: quote),
+                          ),
+                        );
+                      },
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        quotesProvider.isFavorite(quote.id) ? Icons.favorite : Icons.favorite_border,
+                        size: 24,
+                        color: quotesProvider.isFavorite(quote.id) ? Colors.red : Theme.of(context).iconTheme.color,
+                      ),
+                      onPressed: () {
+                        quotesProvider.toggleFavorite(quote);
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
