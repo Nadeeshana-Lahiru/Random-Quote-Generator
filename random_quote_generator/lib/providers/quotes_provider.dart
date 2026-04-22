@@ -14,6 +14,8 @@ class QuotesProvider extends ChangeNotifier {
   static const String _qotdDateKey = 'quote_of_the_day_date';
   static const String _historyKey = 'history_quotes_v2';
   
+  static const String _autoRefreshKey = 'auto_refresh_preference';
+  
   final ApiService _apiService = ApiService();
   
   List<Quote> _favoriteQuotesList = [];
@@ -25,12 +27,14 @@ class QuotesProvider extends ChangeNotifier {
   Quote? _quoteOfTheDay;
   Timer? _autoRefreshTimer;
   bool _isLoading = false;
+  bool _isAutoRefreshEnabled = true;
 
   QuotesProvider() {
     _initProvider();
   }
 
   Future<void> _initProvider() async {
+    await _loadPreferences();
     await _loadFavorites();
     await _loadHistory();
     await _loadOrFetchQOTD();
@@ -43,6 +47,27 @@ class QuotesProvider extends ChangeNotifier {
   Quote? get currentQuote => _currentQuote;
   Quote? get quoteOfTheDay => _quoteOfTheDay;
   bool get isLoading => _isLoading;
+  bool get isAutoRefreshEnabled => _isAutoRefreshEnabled;
+
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    _isAutoRefreshEnabled = prefs.getBool(_autoRefreshKey) ?? true;
+  }
+
+  Future<void> toggleAutoRefresh(bool value) async {
+    if (_isAutoRefreshEnabled != value) {
+      _isAutoRefreshEnabled = value;
+      notifyListeners();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_autoRefreshKey, value);
+      
+      if (_isAutoRefreshEnabled) {
+        _restartAutoRefresh();
+      } else {
+        _autoRefreshTimer?.cancel();
+      }
+    }
+  }
 
   Future<void> _loadFavorites() async {
     final prefs = await SharedPreferences.getInstance();
@@ -202,6 +227,7 @@ class QuotesProvider extends ChangeNotifier {
   }
 
   void _startAutoRefresh() {
+    if (!_isAutoRefreshEnabled) return;
     _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       _generateRandomQuote();
     });

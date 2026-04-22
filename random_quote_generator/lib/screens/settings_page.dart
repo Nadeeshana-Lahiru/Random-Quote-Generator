@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../providers/theme_provider.dart';
+import '../providers/quotes_provider.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -39,6 +40,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final quotesProvider = Provider.of<QuotesProvider>(context);
     
     return Scaffold(
       appBar: AppBar(
@@ -49,6 +51,16 @@ class _SettingsPageState extends State<SettingsPage> {
       body: ListView(
         children: [
           const SizedBox(height: 16),
+          SwitchListTile(
+            title: const Text('Auto-Refresh Quotes', style: TextStyle(fontSize: 18)),
+            subtitle: const Text('Fetch a new quote automatically every 30 seconds'),
+            secondary: const Icon(Icons.timer),
+            value: quotesProvider.isAutoRefreshEnabled,
+            onChanged: (value) {
+              quotesProvider.toggleAutoRefresh(value);
+            },
+          ),
+          const Divider(),
           ListTile(
             leading: const Icon(Icons.brightness_6),
             title: const Text('Theme Mode', style: TextStyle(fontSize: 18)),

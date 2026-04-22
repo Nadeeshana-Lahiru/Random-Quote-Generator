@@ -21,6 +21,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
   final FlutterTts _flutterTts = FlutterTts();
+  double _dragDistance = 0.0;
 
   @override
   void initState() {
@@ -263,9 +264,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     : currentQuote == null
                         ? const Center(child: Text("No quotes found.", style: TextStyle(fontSize: 18)))
                         : GestureDetector(
+                            onHorizontalDragStart: (details) {
+                              _dragDistance = 0;
+                            },
+                            onHorizontalDragUpdate: (details) {
+                              _dragDistance += details.primaryDelta ?? 0;
+                            },
                             onHorizontalDragEnd: (details) {
-                              if (details.primaryVelocity != null && details.primaryVelocity!.abs() > 300) {
-                                // Swiped left or right fast enough
+                              // Support web trackpads via distance, mobile via velocity
+                              if (_dragDistance.abs() > 50 || (details.primaryVelocity != null && details.primaryVelocity!.abs() > 300)) {
                                 _generateNewQuoteWithAnimation(quotesProvider);
                               }
                             },
