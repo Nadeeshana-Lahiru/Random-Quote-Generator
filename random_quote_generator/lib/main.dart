@@ -47,7 +47,7 @@ class MyApp extends StatelessWidget {
               brightness: Brightness.light,
             ),
             useMaterial3: true,
-            textTheme: GoogleFonts.outfitTextTheme(ThemeData.light().textTheme),
+            textTheme: GoogleFonts.getTextTheme(themeProvider.fontFamily, ThemeData.light().textTheme),
             scaffoldBackgroundColor: const Color(0xFFF8F9FA),
             appBarTheme: const AppBarTheme(
               elevation: 0,
@@ -70,7 +70,7 @@ class MyApp extends StatelessWidget {
               surface: const Color(0xFF1E1E1E),
             ),
             useMaterial3: true,
-            textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme),
+            textTheme: GoogleFonts.getTextTheme(themeProvider.fontFamily, ThemeData.dark().textTheme),
             scaffoldBackgroundColor: const Color(0xFF121212),
             appBarTheme: const AppBarTheme(
               elevation: 0,

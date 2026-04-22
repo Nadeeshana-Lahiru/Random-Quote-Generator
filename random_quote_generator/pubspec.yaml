@@ -39,6 +39,8 @@ dependencies:
   package_info_plus: ^10.1.0
   google_fonts: ^8.0.2
   share_plus: ^13.1.0
+  http: ^1.6.0
+  home_widget: ^0.9.1
 
 dev_dependencies:
   flutter_test:

@@ -61,7 +61,7 @@ class FavoritesPage extends StatelessWidget {
                             IconButton(
                               icon: const Icon(Icons.favorite, color: Colors.red),
                               onPressed: () {
-                                quotesProvider.toggleFavorite(quote.id);
+                                quotesProvider.toggleFavorite(quote);
                               },
                             ),
                           ],

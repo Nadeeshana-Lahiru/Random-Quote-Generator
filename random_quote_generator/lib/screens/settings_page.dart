@@ -82,6 +82,52 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const Divider(),
           ListTile(
+            leading: const Icon(Icons.text_format),
+            title: const Text('Font Style', style: TextStyle(fontSize: 18)),
+            trailing: DropdownButton<String>(
+              value: themeProvider.fontFamily,
+              underline: const SizedBox(),
+              items: const [
+                DropdownMenuItem(value: 'Outfit', child: Text('Outfit')),
+                DropdownMenuItem(value: 'Lato', child: Text('Lato')),
+                DropdownMenuItem(value: 'Roboto', child: Text('Roboto')),
+                DropdownMenuItem(value: 'Playfair Display', child: Text('Playfair')),
+              ],
+              onChanged: (String? newValue) {
+                if (newValue != null) {
+                  themeProvider.setFontFamily(newValue);
+                }
+              },
+            ),
+          ),
+          const Divider(),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.format_size, color: Colors.grey),
+                    SizedBox(width: 16),
+                    Text('Font Size', style: TextStyle(fontSize: 18)),
+                  ],
+                ),
+                Slider(
+                  value: themeProvider.fontSize,
+                  min: 16.0,
+                  max: 42.0,
+                  divisions: 13,
+                  label: themeProvider.fontSize.round().toString(),
+                  onChanged: (double value) {
+                    themeProvider.setFontSize(value);
+                  },
+                ),
+              ],
+            ),
+          ),
+          const Divider(),
+          ListTile(
             leading: const Icon(Icons.info_outline),
             title: const Text('App Version', style: TextStyle(fontSize: 18)),
             trailing: Text(

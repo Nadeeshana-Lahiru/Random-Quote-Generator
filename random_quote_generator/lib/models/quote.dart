@@ -18,4 +18,22 @@ class Quote {
   String getAuthor(String langCode) {
     return author[langCode] ?? author['en'] ?? '';
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'text': text,
+      'author': author,
+      'category': category,
+    };
+  }
+
+  factory Quote.fromJson(Map<String, dynamic> map) {
+    return Quote(
+      id: map['id'] ?? '',
+      text: Map<String, String>.from(map['text'] ?? {}),
+      author: Map<String, String>.from(map['author'] ?? {}),
+      category: map['category'] ?? 'All',
+    );
+  }
 }

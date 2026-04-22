@@ -1,112 +1,204 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:home_widget/home_widget.dart';
 import '../models/quote.dart';
 import '../data/quotes_data.dart';
+import '../services/api_service.dart';
 
 class QuotesProvider extends ChangeNotifier {
-  static const String _favoritesKey = 'favorite_quotes';
+  static const String _favoritesKey = 'favorite_quotes_v2';
+  static const String _qotdKey = 'quote_of_the_day_json';
+  static const String _qotdDateKey = 'quote_of_the_day_date';
+  static const String _historyKey = 'history_quotes_v2';
   
-  Set<String> _favoriteIds = {};
+  final ApiService _apiService = ApiService();
+  
+  List<Quote> _favoriteQuotesList = [];
+  List<Quote> _historyQuotesList = [];
+  
   String _selectedCategory = "All";
-  String _searchQuery = "";
   
   Quote? _currentQuote;
+  Quote? _quoteOfTheDay;
   Timer? _autoRefreshTimer;
+  bool _isLoading = false;
 
   QuotesProvider() {
-    _loadFavorites();
-    _generateRandomQuote();
-    _startAutoRefresh();
+    _initProvider();
   }
 
-  Set<String> get favoriteIds => _favoriteIds;
+  Future<void> _initProvider() async {
+    await _loadFavorites();
+    await _loadHistory();
+    await _loadOrFetchQOTD();
+    generateNewQuoteManually();
+  }
+
+  List<Quote> get favoriteQuotes => _favoriteQuotesList;
+  List<Quote> get historyQuotes => _historyQuotesList;
   String get selectedCategory => _selectedCategory;
   Quote? get currentQuote => _currentQuote;
-
-  List<Quote> get filteredQuotes {
-    return quotesList.where((quote) {
-      final matchesCategory = _selectedCategory == "All" || quote.category == _selectedCategory;
-      if (!matchesCategory) return false;
-
-      if (_searchQuery.isEmpty) return true;
-      
-      final query = _searchQuery.toLowerCase();
-      // Search across all languages for simplicity, or just english as fallback
-      final textEn = quote.getText('en').toLowerCase();
-      final textSi = quote.getText('si').toLowerCase();
-      final textTa = quote.getText('ta').toLowerCase();
-      final authorEn = quote.getAuthor('en').toLowerCase();
-      
-      return textEn.contains(query) || textSi.contains(query) || textTa.contains(query) || authorEn.contains(query);
-    }).toList();
-  }
-
-  List<Quote> get favoriteQuotes {
-    return quotesList.where((q) => _favoriteIds.contains(q.id)).toList();
-  }
+  Quote? get quoteOfTheDay => _quoteOfTheDay;
+  bool get isLoading => _isLoading;
 
   Future<void> _loadFavorites() async {
     final prefs = await SharedPreferences.getInstance();
     final savedList = prefs.getStringList(_favoritesKey);
     if (savedList != null) {
-      _favoriteIds = savedList.toSet();
+      _favoriteQuotesList = savedList
+          .map((jsonStr) => Quote.fromJson(json.decode(jsonStr)))
+          .toList();
       notifyListeners();
     }
   }
 
-  Future<void> toggleFavorite(String quoteId) async {
-    if (_favoriteIds.contains(quoteId)) {
-      _favoriteIds.remove(quoteId);
+  Future<void> _saveFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = _favoriteQuotesList
+        .map((q) => json.encode(q.toJson()))
+        .toList();
+    await prefs.setStringList(_favoritesKey, jsonList);
+  }
+  
+  Future<void> _loadHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedList = prefs.getStringList(_historyKey);
+    if (savedList != null) {
+      _historyQuotesList = savedList
+          .map((jsonStr) => Quote.fromJson(json.decode(jsonStr)))
+          .toList();
+      notifyListeners();
+    }
+  }
+
+  Future<void> _saveHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = _historyQuotesList
+        .map((q) => json.encode(q.toJson()))
+        .toList();
+    await prefs.setStringList(_historyKey, jsonList);
+  }
+
+  void _recordToHistory(Quote quote) {
+    if (_historyQuotesList.isEmpty || _historyQuotesList.first.id != quote.id) {
+       _historyQuotesList.insert(0, quote);
+       if (_historyQuotesList.length > 100) {
+         _historyQuotesList.removeLast();
+       }
+       _saveHistory();
+       notifyListeners(); // allows history UI to update instantly
+    }
+  }
+
+  Future<void> _updateWidget(Quote quote) async {
+    try {
+      await HomeWidget.saveWidgetData<String>('quote_text', quote.getText('en'));
+      await HomeWidget.saveWidgetData<String>('quote_author', '- ${quote.getAuthor('en')}');
+      await HomeWidget.updateWidget(name: 'QuoteWidgetProvider', androidName: 'QuoteWidgetProvider');
+    } catch (e) {
+      // Widget error silently ignored if not supported
+    }
+  }
+
+  Future<void> _loadOrFetchQOTD() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String todayDate = DateTime.now().toIso8601String().split('T')[0];
+    final String? savedDate = prefs.getString(_qotdDateKey);
+    final String? savedQotdJson = prefs.getString(_qotdKey);
+
+    if (savedDate == todayDate && savedQotdJson != null) {
+      _quoteOfTheDay = Quote.fromJson(json.decode(savedQotdJson));
+      notifyListeners();
     } else {
-      _favoriteIds.add(quoteId);
+      try {
+        final newQotd = await _apiService.getRandomQuote(category: "Motivation");
+        _quoteOfTheDay = newQotd;
+        await prefs.setString(_qotdDateKey, todayDate);
+        await prefs.setString(_qotdKey, json.encode(newQotd.toJson()));
+        notifyListeners();
+      } catch (e) {
+        _quoteOfTheDay = quotesList.first;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> toggleFavorite(Quote quote) async {
+    final exists = _favoriteQuotesList.any((q) => q.id == quote.id);
+    if (exists) {
+      _favoriteQuotesList.removeWhere((q) => q.id == quote.id);
+    } else {
+      _favoriteQuotesList.add(quote);
     }
     notifyListeners();
-    
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_favoritesKey, _favoriteIds.toList());
+    await _saveFavorites();
   }
 
   bool isFavorite(String quoteId) {
-    return _favoriteIds.contains(quoteId);
+    return _favoriteQuotesList.any((q) => q.id == quoteId);
   }
 
   void setCategory(String category) {
     _selectedCategory = category;
-    _generateRandomQuote(); // Generate new quote when category changes
-    _restartAutoRefresh();
+    generateNewQuoteManually();
   }
 
   void setSearchQuery(String query) {
-    _searchQuery = query;
-    _generateRandomQuote(); // Recalculate
+    notifyListeners(); 
+  }
+
+  Future<void> _generateRandomQuote() async {
+    _isLoading = true;
+    notifyListeners();
+    
+    try {
+      final fetchedQuote = await _apiService.getRandomQuote(category: _selectedCategory);
+      _currentQuote = fetchedQuote;
+      _recordToHistory(fetchedQuote);
+      _updateWidget(fetchedQuote);
+    } catch (e) {
+      // Offline Mode Fallback
+      final list = _localFilteredQuotes();
+      if (list.isNotEmpty) {
+        final random = Random();
+        _currentQuote = list[random.nextInt(list.length)];
+        _recordToHistory(_currentQuote!);
+        _updateWidget(_currentQuote!);
+      } else {
+        _currentQuote = null; 
+      }
+    }
+    
+    _isLoading = false;
     notifyListeners();
   }
 
-  void _generateRandomQuote() {
-    final currentList = filteredQuotes;
-    if (currentList.isEmpty) {
-      _currentQuote = null;
-    } else {
-      final random = Random();
-      // Ensure we don't show the exact same quote if possible
-      if (currentList.length > 1 && _currentQuote != null) {
-        Quote newQuote;
-        do {
-          newQuote = currentList[random.nextInt(currentList.length)];
-        } while (newQuote.id == _currentQuote!.id);
-        _currentQuote = newQuote;
-      } else {
-        _currentQuote = currentList[random.nextInt(currentList.length)];
+  List<Quote> _localFilteredQuotes() {
+    // Advanced offline fallback: use full history if available matching category
+    Set<Quote> offlinePool = {};
+    
+    for (var q in _historyQuotesList) {
+      if (_selectedCategory == "All" || q.category == _selectedCategory) {
+        offlinePool.add(q);
       }
     }
-    notifyListeners();
+    
+    // Also inject hardcoded quotes so they're always available
+    for (var q in quotesList) {
+      if (_selectedCategory == "All" || q.category == _selectedCategory) {
+        offlinePool.add(q);
+      }
+    }
+    
+    return offlinePool.toList();
   }
 
   void generateNewQuoteManually() {
     _generateRandomQuote();
-    _restartAutoRefresh(); // Reset the timer if user manually clicks
+    _restartAutoRefresh();
   }
 
   void _startAutoRefresh() {
